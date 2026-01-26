@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>InsertWrap 設定</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <h1>InsertWrap 設定</h1>
+
+    <div class="setting-group">
+      <label class="switch-label">
+        <input type="checkbox" id="enabled" checked>
+        <span class="switch-text">有効</span>
+      </label>
+      <p class="description">メール送信時に自動で改行を挿入します</p>
+    </div>
+
+    <div class="setting-group">
+      <label for="maxWidth">改行桁数</label>
+      <div class="input-group">
+        <input type="number" id="maxWidth" min="20" max="200" value="72">
+        <span class="unit">桁</span>
+      </div>
+      <p class="description">
+        指定した桁数で改行を挿入します（20〜200）<br>
+        全角文字は2桁、半角文字は1桁としてカウントします
+      </p>
+    </div>
+
+    <div class="info-box">
+      <h3>処理対象</h3>
+      <ul>
+        <li>プレーンテキストメールのみ（HTMLメールは対象外）</li>
+        <li>引用行（<code>&gt;</code> で始まる行）はスキップ</li>
+        <li>URLの途中では改行しません</li>
+      </ul>
+    </div>
+
+    <div class="button-group">
+      <button id="save" class="primary">保存</button>
+      <button id="reset">初期値に戻す</button>
+    </div>
+
+    <div id="status" class="status" hidden></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
