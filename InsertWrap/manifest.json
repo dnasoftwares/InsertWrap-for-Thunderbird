@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "InsertWrap",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "メール送信前に指定桁数で改行を挿入",
   "author": "D.N.A. Softwares",
   "browser_specific_settings": {

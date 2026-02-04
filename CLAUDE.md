@@ -18,7 +18,7 @@ InsertWrap は Thunderbird 128+ 用の WebExtension アドオン。メール送�
 ```
 manifest.json          # Manifest V3, Thunderbird 128+ 必須
 background.js          # メインロジック（自動改行 + ツールバーボタン）
-lib/text-wrapper.js    # テキスト処理（wrapText, getCharWidth など）
+lib/text-wrapper.js    # テキスト処理（wrapText, wrapLine, getCharWidth, extractAsciiWord など）
 options/               # 設定画面 UI
 ```
 
@@ -33,6 +33,10 @@ options/               # 設定画面 UI
 - 引用行（`>` 始まり）はスキップ
 - URL 内では改行しない
 - プレーンテキストメールのみ対象
+- **英単語保護**: ASCII単語は途中で分割せず、収まらない場合は次行へ送る
+  - 単語構成文字: 英数字、ハイフン、アンダースコア、アポストロフィ
+  - 単語自体が maxWidth を超える場合のみ文字単位で分割
+  - 改行時の行頭スペースは自動除去
 
 ### 設定
 
