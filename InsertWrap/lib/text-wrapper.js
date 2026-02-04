@@ -59,6 +59,42 @@ function isQuotedLine(line) {
 }
 
 /**
+ * ASCII単語を構成する文字かどうかを判定する
+ * 英数字、ハイフン、アンダースコア、アポストロフィを単語の一部とみなす
+ * @param {string} char - 文字
+ * @returns {boolean} - ASCII単語の一部なら true
+ */
+function isAsciiWordChar(char) {
+  const code = char.charCodeAt(0);
+  // a-z, A-Z
+  if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A)) return true;
+  // 0-9
+  if (code >= 0x30 && code <= 0x39) return true;
+  // ハイフン、アンダースコア、アポストロフィ
+  if (code === 0x2D || code === 0x5F || code === 0x27) return true;
+  return false;
+}
+
+/**
+ * 指定位置から始まるASCII単語を抽出する
+ * @param {string} line - 行文字列
+ * @param {number} startIndex - 開始位置
+ * @returns {{word: string, length: number}} - 単語と文字数
+ */
+function extractAsciiWord(line, startIndex) {
+  let word = '';
+  let i = startIndex;
+  const chars = [...line]; // サロゲートペア対応
+
+  while (i < chars.length && isAsciiWordChar(chars[i])) {
+    word += chars[i];
+    i++;
+  }
+
+  return { word, length: word.length };
+}
+
+/**
  * 行内のURLの位置を抽出する
  * @param {string} line - 行文字列
  * @returns {Array<{start: number, end: number}>} - URL位置の配列
@@ -111,30 +147,83 @@ function wrapLine(line, maxWidth) {
   }
 
   const urls = extractUrls(line);
+  const chars = [...line]; // サロゲートペア対応
   const result = [];
   let currentLine = '';
   let currentWidth = 0;
   let charIndex = 0;
 
-  for (const char of line) {
-    const charWidth = getCharWidth(char.codePointAt(0));
+  while (charIndex < chars.length) {
+    const char = chars[charIndex];
 
-    // この文字を追加すると超過するか確認
-    if (currentWidth + charWidth > maxWidth && currentLine.length > 0) {
-      // URL内での改行を避ける
-      const urlInfo = isInsideUrl(charIndex, urls);
-      if (urlInfo) {
-        // URL終端まで続ける（maxWidthを超えてもURL内では改行しない）
-        currentLine += char;
-        currentWidth += charWidth;
+    // URL内かどうかを確認
+    const urlInfo = isInsideUrl(charIndex, urls);
+    if (urlInfo) {
+      // URL終端まで一気に追加（maxWidthを超えてもURL内では改行しない）
+      while (charIndex < urlInfo.end && charIndex < chars.length) {
+        currentLine += chars[charIndex];
+        currentWidth += getCharWidth(chars[charIndex].codePointAt(0));
         charIndex++;
-        continue;
+      }
+      continue;
+    }
+
+    // ASCII単語の開始かどうかを確認
+    if (isAsciiWordChar(char)) {
+      const { word } = extractAsciiWord(line, charIndex);
+      const wordWidth = getStringWidth(word);
+
+      // 単語を追加すると超過するか確認
+      if (currentWidth + wordWidth > maxWidth && currentLine.length > 0) {
+        // 現在の行を確定して改行（末尾スペースを除去）
+        result.push(currentLine.trimEnd());
+        currentLine = '';
+        currentWidth = 0;
       }
 
-      // 改行を挿入
-      result.push(currentLine);
-      currentLine = char;
-      currentWidth = charWidth;
+      // 単語自体がmaxWidthを超える場合は文字単位で分割
+      if (wordWidth > maxWidth && currentLine.length === 0) {
+        for (const wordChar of word) {
+          const charWidth = getCharWidth(wordChar.codePointAt(0));
+          if (currentWidth + charWidth > maxWidth && currentLine.length > 0) {
+            result.push(currentLine);
+            currentLine = wordChar;
+            currentWidth = charWidth;
+          } else {
+            currentLine += wordChar;
+            currentWidth += charWidth;
+          }
+        }
+      } else {
+        // 単語全体を追加
+        currentLine += word;
+        currentWidth += wordWidth;
+      }
+
+      charIndex += word.length;
+      continue;
+    }
+
+    // 行頭のスペースはスキップ
+    if (currentLine.length === 0 && char === ' ') {
+      charIndex++;
+      continue;
+    }
+
+    // 非ASCII文字（日本語など）は従来通り文字単位で処理
+    const charWidth = getCharWidth(char.codePointAt(0));
+
+    if (currentWidth + charWidth > maxWidth && currentLine.length > 0) {
+      // 改行を挿入（末尾スペースを除去）
+      result.push(currentLine.trimEnd());
+      // 次の行の先頭がスペースにならないようにする
+      if (char === ' ') {
+        currentLine = '';
+        currentWidth = 0;
+      } else {
+        currentLine = char;
+        currentWidth = charWidth;
+      }
     } else {
       currentLine += char;
       currentWidth += charWidth;
