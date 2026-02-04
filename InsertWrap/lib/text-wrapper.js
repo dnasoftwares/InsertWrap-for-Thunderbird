@@ -95,19 +95,36 @@ function extractAsciiWord(line, startIndex) {
 }
 
 /**
- * 行内のURLの位置を抽出する
+ * 行内のURLの位置を抽出する（文字配列インデックスベース）
  * @param {string} line - 行文字列
- * @returns {Array<{start: number, end: number}>} - URL位置の配列
+ * @returns {Array<{start: number, end: number}>} - URL位置の配列（文字配列インデックス）
  */
 function extractUrls(line) {
   const urlPattern = /(?:https?:\/\/|mailto:|ftp:\/\/)[^\s<>"')\]]+/gi;
   const urls = [];
   let match;
+  
+  // 文字列インデックスから文字配列インデックスへのマッピングを作成
+  const chars = [...line];
+  const stringIndexToCharIndex = [];
+  let stringIndex = 0;
+  for (let charIndex = 0; charIndex < chars.length; charIndex++) {
+    const char = chars[charIndex];
+    const charLength = char.length; // サロゲートペアは2、通常文字は1
+    for (let i = 0; i < charLength; i++) {
+      stringIndexToCharIndex[stringIndex + i] = charIndex;
+    }
+    stringIndex += charLength;
+  }
+  // 末尾のインデックスも追加
+  stringIndexToCharIndex[stringIndex] = chars.length;
 
   while ((match = urlPattern.exec(line)) !== null) {
+    const startCharIndex = stringIndexToCharIndex[match.index];
+    const endCharIndex = stringIndexToCharIndex[match.index + match[0].length];
     urls.push({
-      start: match.index,
-      end: match.index + match[0].length
+      start: startCharIndex,
+      end: endCharIndex
     });
   }
 
@@ -186,7 +203,7 @@ function wrapLine(line, maxWidth) {
         for (const wordChar of word) {
           const charWidth = getCharWidth(wordChar.codePointAt(0));
           if (currentWidth + charWidth > maxWidth && currentLine.length > 0) {
-            result.push(currentLine);
+            result.push(currentLine.trimEnd());
             currentLine = wordChar;
             currentWidth = charWidth;
           } else {
@@ -204,8 +221,8 @@ function wrapLine(line, maxWidth) {
       continue;
     }
 
-    // 行頭のスペースはスキップ
-    if (currentLine.length === 0 && char === ' ') {
+    // 行頭の空白文字（スペース、タブなど）はスキップ
+    if (currentLine.length === 0 && /\s/.test(char)) {
       charIndex++;
       continue;
     }
@@ -216,8 +233,8 @@ function wrapLine(line, maxWidth) {
     if (currentWidth + charWidth > maxWidth && currentLine.length > 0) {
       // 改行を挿入（末尾スペースを除去）
       result.push(currentLine.trimEnd());
-      // 次の行の先頭がスペースにならないようにする
-      if (char === ' ') {
+      // 次の行の先頭が空白文字にならないようにする
+      if (/\s/.test(char)) {
         currentLine = '';
         currentWidth = 0;
       } else {
